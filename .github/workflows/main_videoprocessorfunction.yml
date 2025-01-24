@@ -1,4 +1,7 @@
-name: Build and deploy .NET Core app to Azure Function App - VideoProcessorFunction
+# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy dotnet core app to Azure Function App - VideoProcessorFunction
 
 on:
   push:
@@ -7,44 +10,47 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # Path to the Azure Function project (default: repository root)
-  DOTNET_VERSION: '8.0.x' # Specify the .NET version
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
+  DOTNET_VERSION: '8.0.x' # set this to the dotnet version to use
 
 jobs:
   build-and-deploy:
     runs-on: windows-latest
     permissions:
-      id-token: write # Required for Azure authentication
+      id-token: write #This is required for requesting the JWT
 
     steps:
-      # Step 1: Checkout the code
-      - name: Checkout repository
+      - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
 
-      # Step 2: Set up .NET environment
-      - name: Setup .NET ${{ env.DOTNET_VERSION }} environment
+      - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      # Step 3: Install dependencies and build
-      - name: Restore and build .NET project
+      - name: 'Restore Dependencies and Build Project'
         run: |
           dotnet restore ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           dotnet build ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }} --configuration Release --output ./output
-
-      # Step 4: Login to Azure
+      
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_FE50C780878541B8B018B6C70CF966D5 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_FB1A5373045E485DB1B0202F58852FEB }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_ADABC02F72504AA5A07B62C31EC6C355 }}
 
-      # Step 5: Deploy to Azure Function App
-      - name: Deploy Azure Function App
+      - name: 'Deploy Azure Function App'
         uses: Azure/functions-action@v1
-        id: deploy
+        id: fa
         with:
-          app-name: 'VideoProcessorFunction' # Name of your Function App in Azure
+          app-name: 'VideoProcessorFunction'
+          slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+          
+      - name: 'Post-Deployment Check'
+        run: |
+          echo "Deployment completed successfully."
+          echo "Azure Function App Name: VideoProcessorFunction"
+          echo "Environment: Production"
