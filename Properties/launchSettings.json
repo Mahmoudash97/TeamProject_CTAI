@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "TeamProject_CTAI": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7195",
+      "launchBrowser": false
+    }
+  }
+}
