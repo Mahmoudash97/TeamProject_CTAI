@@ -1,3 +1,4 @@
+import sys
 import os
 import subprocess
 import pandas as pd
@@ -7,7 +8,7 @@ import joblib
 import matplotlib.pyplot as plt
 
 # Step 1: Pre-trained Model Path
-model_path = "/mnt/c/Users\asadi\Desktop\TeamProject_CTAI\Evaluation\2athlete_scoring_model_new (1).pkl"  # Replace with your model file
+model_path = "/mnt/c/Users/asadi/Desktop/TeamProject_CTAI/Evaluation/2athlete_scoring_model_new (1).pkl"  # Replace with your model file
 
 # Step 2: Process Video with Sports2D
 def process_video_with_sports2d(video_path):
@@ -157,6 +158,19 @@ def automate_scoring(video_path):
     plt.xticks(rotation=90)
     plt.show()
 
-# Run the automation for the uploaded video
-uploaded_video_path = "/mnt/c/Users\asadi\Desktop\TeamProject_CTAI\Evaluation\3.mp4"
-automate_scoring(uploaded_video_path)
+# Main Entry Point
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python main.py <video_path>")
+        sys.exit(1)
+
+    # Get the video path from command-line arguments
+    video_path = sys.argv[1]
+
+    # Check if the provided path is valid
+    if not os.path.exists(video_path):
+        print(f"Error: The video file does not exist at path {video_path}")
+        sys.exit(1)
+
+    print(f"Evaluating video: {video_path}")
+    automate_scoring(video_path)
