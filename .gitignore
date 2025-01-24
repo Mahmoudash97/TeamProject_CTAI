@@ -16,7 +16,8 @@ local.settings.json
 
 
 
-.env
+/Evaluation/.env
+
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
