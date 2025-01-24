@@ -5,90 +5,62 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import joblib
-import matplotlib.pyplot as plt
 
-# Step 1: Pre-trained Model Path
-model_path = "/mnt/c/Users/asadi/Desktop/TeamProject_CTAI/Evaluation/2athlete_scoring_model_new (1).pkl"  # Replace with your model file
+# Pre-trained Model Path
+model_path = "/mnt/c/Users/asadi/Desktop/TeamProject_CTAI/Evaluation/2athlete_scoring_model_new (1).pkl"
 
-# Step 2: Process Video with Sports2D
+# Process Video with Sports2D
 def process_video_with_sports2d(video_path):
     """
     Process the video using Sports2D CLI.
     """
     try:
-        # Convert to absolute path
         video_path = os.path.abspath(video_path)
-        video_name = os.path.splitext(os.path.basename(video_path))[0]
-        output_dir = f"{video_name}_Sports2D"
+        output_dir = f"{os.path.splitext(os.path.basename(video_path))[0]}_Sports2D"
 
-        # Ensure the video file exists
         if not os.path.exists(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
 
-        # Use the sports2d CLI command directly
         cmd = (
             f"sports2d "
             f"--save_vid false --save_img false --save_pose false "
             f"--show_graphs false --multiperson true --keypoint_likelihood_threshold 0.65 "
             f"--video_input {video_path}"
         )
-
         print(f"Running command: {cmd}")
         subprocess.run(cmd, shell=True, check=True)
         print("Sports2D processing completed successfully.")
-
-        # Return the output directory
         return output_dir
-    except FileNotFoundError as fnfe:
-        print(f"File Error: {fnfe}")
-        raise
     except subprocess.CalledProcessError as cpe:
         print(f"Error running Sports2D: {cpe}")
-        print(f"Return Code: {cpe.returncode}")
         raise
 
-
-# Step 3: Locate and Load .mot Files for person00 and person01
-def load_person_mot_files(output_dir):
+# Load and Score .mot File
+def score_video_mot_file(output_dir, model_path):
     """
-    Locate and load .mot files for person00 and person01 in the output directory.
+    Locate and score the .mot file for the uploaded video.
     """
     try:
-        # Find all .mot files in the output directory
         mot_files = [f for f in os.listdir(output_dir) if f.endswith(".mot")]
 
-        # Filter only person00 and person01
-        filtered_files = [f for f in mot_files if "person00" in f or "person01" in f]
+        if not mot_files:
+            raise FileNotFoundError("No .mot files found in the output directory.")
 
-        if not filtered_files:
-            raise FileNotFoundError("No .mot files for person00 or person01 found.")
+        # Process the first .mot file (assuming one video corresponds to one .mot file)
+        mot_file_path = os.path.join(output_dir, mot_files[0])
+        print(f"Processing MOT file: {mot_file_path}")
 
-        print(f"Filtered .mot files: {filtered_files}")
-        return filtered_files
-    except Exception as e:
-        print(f"Error locating .mot files: {e}")
-        raise
-
-# Step 4: Score Each Person and Provide Feedback
-def score_person(mot_file_path, model_path):
-    """
-    Score a single person's .mot file and provide feedback.
-    """
-    try:
-        # Extract the person ID from the file name
-        person_id = mot_file_path.split('_')[-1].replace('.mot', '')
-
-        # Load the .mot file into a DataFrame
+        # Load .mot file into DataFrame
         df = pd.read_csv(mot_file_path, sep="\t", engine="python", skiprows=10)
         df = df.drop(columns=['time'], errors='ignore')  # Drop 'time' column if it exists
 
         # Normalize the data
         scaler = MinMaxScaler()
-        df = df.transform(lambda x: (x - x.min()) / (x.max() - x.min()))
+        df = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
 
-        # Load the pre-trained model
+        # Load pre-trained model
         model = joblib.load(model_path)
-        print(f"Model loaded successfully for {person_id}")
+        print("Model loaded successfully.")
 
         # Predict scores
         predictions = model.predict(df)
@@ -104,73 +76,57 @@ def score_person(mot_file_path, model_path):
         }
         weights = pd.Series(manual_weights).reindex(df.columns).fillna(1.0)
 
-        # Calculate feature contributions
         feature_contributions = df.apply(lambda row: row * weights, axis=1).mean()
-
-        # Identify the weakest features
         low_contribution_features = feature_contributions.nsmallest(3)
 
         feedback = []
         for feature in low_contribution_features.index:
-            feedback.append(f"The athlete needs to improve {feature.replace('_', ' ')} to achieve better results.")
+            feedback.append(f"Improve {feature.replace('_', ' ')} for better results.")
 
-        # Return results
-        return person_id, overall_score, feedback
+        return overall_score, feedback
     except Exception as e:
-        print(f"Error scoring {mot_file_path}: {e}")
+        print(f"Error processing .mot file: {e}")
         raise
 
-# Step 5: Automate the Entire Process
-def automate_scoring(video_path):
+# Main Function
+def evaluate_video(video_path):
     """
-    Fully automate the process for video processing, scoring, and feedback for person00 and person01.
+    Evaluate the uploaded video and return score and feedback.
     """
-    # Process video with Sports2D
-    output_dir = process_video_with_sports2d(video_path)
+    try:
+        # Step 1: Process the video
+        output_dir = process_video_with_sports2d(video_path)
 
-    # Locate .mot files for person00 and person01
-    mot_files = load_person_mot_files(output_dir)
+        # Step 2: Score the video
+        overall_score, feedback = score_video_mot_file(output_dir, model_path)
 
-    # Score each person
-    scores = []
-    for mot_file in mot_files:
-        mot_file_path = os.path.join(output_dir, mot_file)
-        person_id, score, feedback = score_person(mot_file_path, model_path)
-        scores.append((person_id, score, feedback))
-
-    # Display overall results
-    print("\nFinal Results:")
-    for person_id, score, feedback in scores:
-        print(f"{person_id}: {score:.2f} / 5.0")
+        # Step 3: Print results
+        result_output = []
+        result_output.append("\n===== Evaluation Results =====")
+        result_output.append(f"Overall Score: {overall_score:.2f} / 5.0")
+        result_output.append("Feedback:")
         for line in feedback:
-            print(f"  - {line}")
+            result_output.append(f"- {line}")
 
-    # Visualization
-    person_ids = [s[0] for s in scores]
-    overall_scores = [s[1] for s in scores]
+        # Combine results into a single string
+        final_result = "\n".join(result_output)
+        print(final_result)
 
-    plt.figure(figsize=(10, 6))
-    plt.bar(person_ids, overall_scores, color='skyblue')
-    plt.ylim(0, 5)
-    plt.xlabel('Person ID')
-    plt.ylabel('Overall Score (0-5)')
-    plt.title('Overall Scores for person00 and person01')
-    plt.xticks(rotation=90)
-    plt.show()
+        return final_result
+    except Exception as e:
+        print(f"Error evaluating video: {e}")
+        return f"Error evaluating video: {e}"
 
-# Main Entry Point
+# Entry Point
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python main.py <video_path>")
         sys.exit(1)
 
-    # Get the video path from command-line arguments
     video_path = sys.argv[1]
-
-    # Check if the provided path is valid
     if not os.path.exists(video_path):
-        print(f"Error: The video file does not exist at path {video_path}")
+        print(f"Error: Video file does not exist at {video_path}")
         sys.exit(1)
 
     print(f"Evaluating video: {video_path}")
-    automate_scoring(video_path)
+    evaluate_video(video_path)
