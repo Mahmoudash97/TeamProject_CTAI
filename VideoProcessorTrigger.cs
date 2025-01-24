@@ -15,11 +15,23 @@ namespace TP.Function
         }
 
         [Function(nameof(VideoProcessorTrigger))]
-        public async Task Run([BlobTrigger("videos/{name}", Connection = "AzureWebJobsStorage")] Stream stream, string name)
+        public async Task Run(
+            [BlobTrigger("videos/{name}", Connection = "AzureWebJobsStorage")] Stream stream, 
+            string name)
         {
+            // Log a message indicating that the blob trigger has been activated
+            _logger.LogInformation($"Blob trigger activated for video upload: {name}");
+
+            // Simulate processing the video by reading the blob stream
             using var blobStreamReader = new StreamReader(stream);
-            var content = await blobStreamReader.ReadToEndAsync();
-            _logger.LogInformation($"C# Blob trigger function Processed blob\n Name: {name} \n Data: {content}");
+            var contentPreview = await blobStreamReader.ReadToEndAsync();
+
+            // Log additional information about the blob
+            _logger.LogInformation($"Processing video: {name}");
+            _logger.LogInformation($"Preview of data (first 100 chars): {contentPreview.Substring(0, Math.Min(100, contentPreview.Length))}");
+
+            // Indicate processing is complete
+            _logger.LogInformation($"Processing completed for video: {name}");
         }
     }
 }
