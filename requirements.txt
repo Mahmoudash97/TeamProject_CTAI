@@ -1,6 +1,6 @@
 scikit-learn
 python-dotenv
-openai
+openai==0.28
 
 
 
