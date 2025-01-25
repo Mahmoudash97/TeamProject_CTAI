@@ -1,4 +1,6 @@
 scikit-learn
 python-dotenv
+openai
+
 
 
