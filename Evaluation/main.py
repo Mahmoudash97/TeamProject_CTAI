@@ -6,13 +6,13 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import joblib
 from dotenv import load_dotenv
-import openai
+from transformers import pipeline
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Set your OpenAI API key from the environment variable
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Load Hugging Face API token (if needed, or if using private models)
+HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
 
 # Pre-trained Model Path
 model_path = "/mnt/c/Users/asadi/Desktop/TeamProject_CTAI/Evaluation/2athlete_scoring_model_new (1).pkl"
@@ -105,32 +105,24 @@ def score_video_mot_file(output_dir, model_path):
         print(f"Error processing .mot file: {e}")
         raise
 
-# Generate feedback using OpenAI GPT
-# Updated function to generate GPT feedback with the new OpenAI Python API
-def generate_gpt_feedback(overall_score, feedback):
+# Generate feedback using Hugging Face's transformer model
+def generate_huggingface_feedback(overall_score, feedback):
     try:
-        # Prepare input for GPT
+        # Initialize the Hugging Face pipeline for text generation (You can choose a suitable model)
+        generator = pipeline("text-generation", model="gpt2", device=0)  # or use "distilgpt2", "gpt-neo" if available
+
+        # Prepare input for the model
         feedback_str = "\n".join(feedback)
         prompt = f"Based on the athlete's overall score of {overall_score:.2f}, generate feedback for improvement. Include the following suggestions:\n{feedback_str}\nProvide actionable and motivating feedback to the athlete."
 
-        # Use the newer OpenAI API (v1.0.0 or higher)
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # or use another available model like "gpt-4" if you have access
-            messages=[
-                {"role": "system", "content": "You are a coach helping athletes improve their performance."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150,
-            temperature=0.7
-        )
+        # Generate feedback from Hugging Face model
+        generated_feedback = generator(prompt, max_length=150, num_return_sequences=1)
 
         # Return the generated feedback
-        gpt_feedback = response['choices'][0]['message']['content'].strip()
-        return gpt_feedback
+        return generated_feedback[0]['generated_text']
     except Exception as e:
-        print(f"Error generating GPT feedback: {e}")
+        print(f"Error generating Hugging Face feedback: {e}")
         return "Error generating feedback."
-
 
 # Main Function
 def evaluate_video(video_path):
@@ -144,8 +136,8 @@ def evaluate_video(video_path):
         # Step 2: Score the video
         overall_score, feedback = score_video_mot_file(output_dir, model_path)
 
-        # Step 3: Generate GPT feedback
-        gpt_feedback = generate_gpt_feedback(overall_score, feedback)
+        # Step 3: Generate Hugging Face feedback
+        huggingface_feedback = generate_huggingface_feedback(overall_score, feedback)
 
         # Step 4: Print results
         result_output = []
@@ -154,8 +146,8 @@ def evaluate_video(video_path):
         result_output.append("Feedback:")
         for line in feedback:
             result_output.append(f"- {line}")
-        result_output.append("\nGPT Feedback:")
-        result_output.append(gpt_feedback)
+        result_output.append("\nHugging Face Feedback:")
+        result_output.append(huggingface_feedback)
 
         # Combine results into a single string
         final_result = "\n".join(result_output)
